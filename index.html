@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>个人收款码</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #111827;
+      --sub: #4b5563;
+      --border: #e5e7eb;
+      --accent: #2563eb;
+      --warn-bg: #fffbeb;
+      --warn-text: #92400e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .card {
+      width: min(560px, 100%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+      padding: 24px;
+      text-align: center;
+    }
+
+    h1 { margin: 0 0 8px; font-size: 24px; }
+
+    .tip {
+      margin: 0 0 14px;
+      color: var(--sub);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .warn {
+      margin: 0 0 14px;
+      background: var(--warn-bg);
+      color: var(--warn-text);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-bottom: 16px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .qr-wrap {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fafafa;
+    }
+
+    #qrImage {
+      width: min(340px, 100%);
+      aspect-ratio: 1 / 1;
+      object-fit: contain;
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .channels {
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .channels button {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text);
+    }
+
+    .channels button:hover,
+    .channels button.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>请扫码付款</h1>
+    <p class="tip" id="uaTip">正在识别浏览器...</p>
+    <p class="warn" id="fallbackTip" hidden>
+      当前浏览器不在微信 / QQ / 支付宝内，已默认展示微信收款码。你也可以手动切换渠道。
+    </p>
+    <span class="badge" id="currentChannel">--</span>
+
+    <div class="qr-wrap">
+      <img id="qrImage" src="" alt="收款码" />
+    </div>
+
+    <div class="channels" id="channelButtons">
+      <button type="button" data-channel="wechat">微信</button>
+      <button type="button" data-channel="qq">QQ</button>
+      <button type="button" data-channel="alipay">支付宝</button>
+    </div>
+
+    <p class="tip">
+      请将图片放在同目录并使用文件名：
+      <code>alipay.png</code>（支付宝）、<code>wechat.png</code>（微信）、<code>qq.png</code>（QQ）
+    </p>
+  </main>
+
+  <script>
+    const CHANNELS = {
+      wechat: { label: "微信", file: "wechat.png" },
+      qq: { label: "QQ", file: "qq.png" },
+      alipay: { label: "支付宝", file: "alipay.png" }
+    };
+
+    function detectChannelByUA() {
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes("micromessenger")) return "wechat";
+      if (ua.includes("alipayclient")) return "alipay";
+      if (ua.includes("mqqbrowser") || ua.includes(" qq/") || ua.includes("qq/")) return "qq";
+      return null;
+    }
+
+    const qrImage = document.getElementById("qrImage");
+    const currentChannel = document.getElementById("currentChannel");
+    const uaTip = document.getElementById("uaTip");
+    const fallbackTip = document.getElementById("fallbackTip");
+    const buttons = Array.from(document.querySelectorAll("[data-channel]"));
+
+    function setActiveButton(channel) {
+      buttons.forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.channel === channel);
+      });
+    }
+
+    function showChannel(channel, reasonText) {
+      const selected = CHANNELS[channel] ? channel : "wechat";
+      const item = CHANNELS[selected];
+      qrImage.src = item.file;
+      qrImage.alt = `${item.label}收款码`;
+      currentChannel.textContent = `当前渠道：${item.label}`;
+      uaTip.textContent = reasonText;
+      setActiveButton(selected);
+    }
+
+    const detected = detectChannelByUA();
+    if (detected) {
+      fallbackTip.hidden = true;
+      showChannel(detected, `已自动识别为：${CHANNELS[detected].label}`);
+    } else {
+      fallbackTip.hidden = false;
+      showChannel("wechat", "未识别到微信 / QQ / 支付宝环境，已默认展示微信");
+    }
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        fallbackTip.hidden = true;
+        showChannel(btn.dataset.channel, `你手动切换为：${CHANNELS[btn.dataset.channel].label}`);
+      });
+    });
+
+    qrImage.addEventListener("error", () => {
+      uaTip.textContent = "图片加载失败，请确认同目录存在 alipay.png / wechat.png / qq.png";
+    });
+  </script>
+</body>
+</html>
