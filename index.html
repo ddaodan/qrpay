@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>个人收款码</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #111827;
+      --sub: #4b5563;
+      --border: #e5e7eb;
+      --accent: #2563eb;
+      --warn-bg: #fffbeb;
+      --warn-text: #92400e;
+      --ok-bg: #ecfdf3;
+      --ok-text: #166534;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .card {
+      width: min(560px, 100%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
+      padding: 24px;
+      text-align: center;
+    }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    .tip { margin: 0 0 14px; color: var(--sub); font-size: 14px; line-height: 1.6; }
+    .warn {
+      margin: 0 0 14px;
+      background: var(--warn-bg);
+      color: var(--warn-text);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+    .ok {
+      margin: 0 0 14px;
+      background: var(--ok-bg);
+      color: var(--ok-text);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+    .badge {
+      display: inline-block;
+      margin-bottom: 16px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .cta {
+      display: block;
+      width: 100%;
+      margin: 0 auto 14px;
+      border: none;
+      background: var(--accent);
+      color: white;
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .cta[disabled] {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+    .qr-wrap {
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fafafa;
+    }
+    #qrImage {
+      width: min(340px, 100%);
+      aspect-ratio: 1 / 1;
+      object-fit: contain;
+      border-radius: 10px;
+      background: #fff;
+    }
+    .channels {
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .channels button {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .channels button:hover,
+    .channels button.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>请扫码付款</h1>
+    <p class="tip" id="uaTip">正在识别浏览器...</p>
+    <p class="warn" id="fallbackTip" hidden>
+      当前浏览器不在微信 / QQ / 支付宝内，已默认展示微信收款码。你也可以手动切换渠道。
+    </p>
+    <p class="ok" id="linkTip" hidden></p>
+    <span class="badge" id="currentChannel">--</span>
+
+    <button id="openPayBtn" class="cta" type="button">一键打开支付（免二次扫码）</button>
+
+    <div class="qr-wrap">
+      <img id="qrImage" src="" alt="收款码" />
+    </div>
+
+    <div class="channels" id="channelButtons">
+      <button type="button" data-channel="wechat">微信</button>
+      <button type="button" data-channel="qq">QQ</button>
+      <button type="button" data-channel="alipay">支付宝</button>
+    </div>
+
+    <p class="tip">
+      1）请将图片放在同目录：<code>alipay.png</code>、<code>wechat.png</code>、<code>qq.png</code><br />
+      2）如需“直接跳转支付页”，把下方脚本里的 <code>PAY_LINKS</code> 换成你自己的收款链接
+    </p>
+  </main>
+
+  <script>
+    const CHANNELS = {
+      wechat: { label: "微信", file: "wechat.png" },
+      qq: { label: "QQ", file: "qq.png" },
+      alipay: { label: "支付宝", file: "alipay.png" }
+    };
+
+    // 替换为你自己的收款链接。为空则按钮禁用，仍可扫码付款。
+    const PAY_LINKS = {
+      wechat: "",
+      qq: "",
+      alipay: ""
+    };
+
+    function detectChannelByUA() {
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes("micromessenger")) return "wechat";
+      if (ua.includes("alipayclient")) return "alipay";
+      if (ua.includes("mqqbrowser") || ua.includes(" qq/") || ua.includes("qq/")) return "qq";
+      return null;
+    }
+
+    const qrImage = document.getElementById("qrImage");
+    const currentChannel = document.getElementById("currentChannel");
+    const uaTip = document.getElementById("uaTip");
+    const fallbackTip = document.getElementById("fallbackTip");
+    const linkTip = document.getElementById("linkTip");
+    const openPayBtn = document.getElementById("openPayBtn");
+    const buttons = Array.from(document.querySelectorAll("[data-channel]"));
+
+    let currentChannelKey = "wechat";
+
+    function setActiveButton(channel) {
+      buttons.forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.channel === channel);
+      });
+    }
+
+    function updateDirectPay(channel) {
+      const payLink = PAY_LINKS[channel];
+      const label = CHANNELS[channel].label;
+      if (payLink) {
+        openPayBtn.disabled = false;
+        openPayBtn.textContent = `一键打开${label}支付（免二次扫码）`;
+        linkTip.hidden = false;
+        linkTip.textContent = `已配置${label}直达链接，点击按钮可直接跳转支付页面。`;
+      } else {
+        openPayBtn.disabled = true;
+        openPayBtn.textContent = `未配置${label}直达支付链接`;
+        linkTip.hidden = false;
+        linkTip.textContent = `当前只配置了扫码收款图；如需直达支付，请在 PAY_LINKS.${channel} 填入链接。`;
+      }
+    }
+
+    function showChannel(channel, reasonText) {
+      const selected = CHANNELS[channel] ? channel : "wechat";
+      currentChannelKey = selected;
+      const item = CHANNELS[selected];
+      qrImage.src = item.file;
+      qrImage.alt = `${item.label}收款码`;
+      currentChannel.textContent = `当前渠道：${item.label}`;
+      uaTip.textContent = reasonText;
+      setActiveButton(selected);
+      updateDirectPay(selected);
+    }
+
+    openPayBtn.addEventListener("click", () => {
+      const payLink = PAY_LINKS[currentChannelKey];
+      if (payLink) {
+        window.location.href = payLink;
+      }
+    });
+
+    const detected = detectChannelByUA();
+    if (detected) {
+      fallbackTip.hidden = true;
+      showChannel(detected, `已自动识别为：${CHANNELS[detected].label}`);
+    } else {
+      fallbackTip.hidden = false;
+      showChannel("wechat", "未识别到微信 / QQ / 支付宝环境，已默认展示微信");
+    }
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        fallbackTip.hidden = true;
+        showChannel(btn.dataset.channel, `你手动切换为：${CHANNELS[btn.dataset.channel].label}`);
+      });
+    });
+
+    qrImage.addEventListener("error", () => {
+      uaTip.textContent = "图片加载失败，请确认同目录存在 alipay.png / wechat.png / qq.png";
+    });
+  </script>
+</body>
+</html>
